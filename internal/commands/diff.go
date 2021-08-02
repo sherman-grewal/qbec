@@ -255,7 +255,7 @@ func (d *differ) writeDiff(name string, left, right namedUn) (finalErr error) {
 // diff diffs the supplied object with its remote version and writes output to its writer.
 // The local version is found by downcasting the supplied metadata to a local object.
 // This cast should succeed for all but the deletion use case.
-func (d *differ) diff(ob model.K8sMeta) error {
+func (d *differ) diff(ob model.K8sMeta, localObject bool) error {
 	name, leftName, rightName := d.names(ob)
 
 	var remoteObject *unstructured.Unstructured
@@ -286,7 +286,10 @@ func (d *differ) diff(ob model.K8sMeta) error {
 		var source string
 		left, source = remote.GetPristineVersionForDiff(remoteObject)
 		leftName += " (source: " + source + ")"
+	} else if !localObject {
+		return nil
 	}
+
 	left = fixup(left)
 
 	if r, ok := ob.(model.K8sObject); ok {
@@ -297,7 +300,7 @@ func (d *differ) diff(ob model.K8sMeta) error {
 
 // diffLocal adapts the diff method to run as a parallel worker.
 func (d *differ) diffLocal(ob model.K8sLocalObject) error {
-	return d.diff(ob)
+	return d.diff(ob, true)
 }
 
 type diffCommandConfig struct {
@@ -378,7 +381,7 @@ func doDiff(args []string, config diffCommandConfig) error {
 			listErr = err
 		} else {
 			for _, ob := range extra {
-				if err := d.diff(ob); err != nil {
+				if err := d.diff(ob, false); err != nil {
 					return err
 				}
 			}
